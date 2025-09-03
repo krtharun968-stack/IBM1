@@ -1,0 +1,312 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Student Marksheet Calculator</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- html2pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Welcome Page -->
+    <div id="welcomePage">
+      <h1>🎓 Welcome to Marksheet Calculator 🎓</h1>
+      <button onclick="goToLogin()">Next ➡</button>
+    </div>
+
+    <!-- Login Page -->
+    <div id="loginPage">
+      <h2>Login</h2>
+      <input type="email" id="email" placeholder="Enter Email">
+      <input type="password" id="password" placeholder="Enter Password">
+      <button onclick="goToStudentInfo()">Next ➡</button>
+    </div>
+
+    <!-- Student Info Page -->
+    <div id="studentInfoPage">
+      <h2>Student Information</h2>
+      <input type="text" id="studentName" placeholder="Enter Student Name">
+      <input type="text" id="regNumber" placeholder="Enter Register Number">
+      <input type="date" id="dob">
+      <input type="text" id="department" placeholder="Enter Department">
+      <button onclick="goToSemester()">Next ➡</button>
+    </div>
+
+    <!-- Semester Selection -->
+    <div id="semesterSection">
+      <h2>Select Semester</h2>
+      <select id="semesterSelect">
+        <option value="">-- Choose Semester --</option>
+        <option value="1">Semester 1</option>
+        <option value="2">Semester 2</option>
+        <option value="3">Semester 3</option>
+      </select>
+      <button onclick="showSubjects()">Next ➡</button>
+    </div>
+
+    <!-- Subjects Entry -->
+    <div id="subjects">
+      <h2>Enter Marks for Subjects</h2>
+      <form id="marksForm" onsubmit="event.preventDefault(); calculateResult();"></form>
+      <button onclick="calculateResult()">Submit Marks 📝</button>
+    </div>
+
+    <!-- Result Section -->
+    <div id="resultSection">
+      <h2>📄 Result 📄</h2>
+      <div id="collegeInput">
+        <input type="text" placeholder="Enter College Name" id="collegeName"><br>
+        <input type="text" placeholder="Enter University Name" id="universityName"><br>
+        <button onclick="showFinalResult()">Finish 🎉</button>
+      </div>
+      <div id="resultDisplay"></div>
+
+      <!-- Graphs -->
+      <canvas id="barChart"></canvas>
+      <canvas id="pieChart"></canvas>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button onclick="downloadPDF()">📥 Download PDF</button>
+        <button onclick="goBack()">⬅ Back</button>
+        <button onclick="toggleTheme()">🌙/☀️ Theme</button>
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html><style>body {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(#3a1c71, #d76d77, #ffaf7b);
+  color: white;
+  text-align: center;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 750px;
+  margin: 30px auto;
+  background: rgba(0,0,0,0.6);
+  padding: 20px;
+  border-radius: 15px;
+}
+
+select, input, button {
+  margin: 8px 0;
+  padding: 10px;
+  width: 90%;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+}
+
+button {
+  background-color: #4CAF50;
+  color: white;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+#loginPage, #studentInfoPage, #semesterSection, #subjects, #resultSection {
+  display: none;
+}
+
+h1 {
+  animation: fadeIn 2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Table styling */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  background: rgba(255,255,255,0.1);
+}
+
+th, td {
+  border: 1px solid white;
+  padding: 8px;
+}
+
+/* Dark Theme */
+body.dark {
+  background: #121212;
+  color: #eee;
+}
+
+body.dark .container {
+  background: #1e1e1e;
+}</style><script>const subjectsBySemester = {
+  1: ["Python Programming", "Python Programming Lab", "Statistical Methods-II", "Fundamentals of IT", "C Programming"],
+  2: ["OOP using C++", "OOP using C++ Lab", "Statistical Methods-II", "Introduction to HTML"],
+  3: ["Data Structures", "DSA Lab", "Office Automation", "Problem Solving Techniques", "Environmental Studies"]
+};
+
+let totalMarks = 0, percentage = 0, cgpa = 0, resultClass = "", studentDetails = {};
+let barChart, pieChart;
+
+// Navigation
+function goToLogin() {
+  document.getElementById("welcomePage").style.display = "none";
+  document.getElementById("loginPage").style.display = "block";
+}
+
+function goToStudentInfo() {
+  if (!document.getElementById("email").value || !document.getElementById("password").value)
+    return alert("Enter email and password");
+  document.getElementById("loginPage").style.display = "none";
+  document.getElementById("studentInfoPage").style.display = "block";
+}
+
+function goToSemester() {
+  studentDetails.name = document.getElementById("studentName").value.trim();
+  studentDetails.reg = document.getElementById("regNumber").value.trim();
+  studentDetails.dob = document.getElementById("dob").value;
+  studentDetails.dept = document.getElementById("department").value.trim();
+  if (!studentDetails.name || !studentDetails.reg || !studentDetails.dob || !studentDetails.dept)
+    return alert("Fill all student details");
+  document.getElementById("studentInfoPage").style.display = "none";
+  document.getElementById("semesterSection").style.display = "block";
+}
+
+// Subjects form
+function showSubjects() {
+  const semester = document.getElementById("semesterSelect").value;
+  if (!semester) return alert("Please select a semester");
+
+  const marksForm = document.getElementById("marksForm");
+  marksForm.innerHTML = "";
+  subjectsBySemester[semester].forEach((subject, idx) => {
+    marksForm.innerHTML += `
+      <label>${subject}</label><br>
+      <input type="number" placeholder="Enter marks for ${subject}" id="mark${idx}" min="0" max="100" required><br>`;
+  });
+  document.getElementById("semesterSection").style.display = "none";
+  document.getElementById("subjects").style.display = "block";
+}
+
+// Grade Calculator
+function getGrade(mark) {
+  if (mark >= 90) return "O";
+  if (mark >= 80) return "A+";
+  if (mark >= 70) return "A";
+  if (mark >= 60) return "B+";
+  if (mark >= 50) return "B";
+  if (mark >= 40) return "C";
+  return "F";
+}
+
+function calculateResult() {
+  const semester = document.getElementById("semesterSelect").value;
+  const subjects = subjectsBySemester[semester];
+  totalMarks = 0;
+  let marksArr = [];
+  let gradesArr = [];
+
+  for (let i = 0; i < subjects.length; i++) {
+    const mark = parseInt(document.getElementById(`mark${i}`).value);
+    if (isNaN(mark) || mark < 0 || mark > 100) return alert(`Enter valid marks for ${subjects[i]}`);
+    totalMarks += mark;
+    marksArr.push(mark);
+    gradesArr.push(getGrade(mark));
+  }
+
+  percentage = totalMarks / subjects.length;
+  cgpa = (percentage / 10).toFixed(2);
+
+  if (percentage >= 75) resultClass = "Distinction";
+  else if (percentage >= 60) resultClass = "First Class";
+  else if (percentage >= 50) resultClass = "Second Class";
+  else if (percentage >= 40) resultClass = "Pass";
+  else resultClass = "Fail";
+
+  studentDetails.semester = semester;
+  studentDetails.marks = marksArr;
+  studentDetails.grades = gradesArr;
+
+  document.getElementById("subjects").style.display = "none";
+  document.getElementById("resultSection").style.display = "block";
+}
+
+function showFinalResult() {
+  const college = document.getElementById("collegeName").value.trim();
+  const university = document.getElementById("universityName").value.trim();
+  if (!college || !university) return alert("Please enter College and University names");
+
+  studentDetails.college = college;
+  studentDetails.university = university;
+
+  document.getElementById("collegeInput").style.display = "none";
+  const subjects = subjectsBySemester[studentDetails.semester];
+  
+  let resultHTML = `
+    <h3>Student Result</h3>
+    <p><strong>Name:</strong> ${studentDetails.name}</p>
+    <p><strong>Register No:</strong> ${studentDetails.reg}</p>
+    <p><strong>DOB:</strong> ${studentDetails.dob}</p>
+    <p><strong>Department:</strong> ${studentDetails.dept}</p>
+    <p><strong>College:</strong> ${college}</p>
+    <p><strong>University:</strong> ${university}</p>
+    <table>
+      <tr><th>Subject</th><th>Marks</th><th>Grade</th></tr>`;
+  subjects.forEach((subj, i) => {
+    resultHTML += `<tr><td>${subj}</td><td>${studentDetails.marks[i]}</td><td>${studentDetails.grades[i]}</td></tr>`;
+  });
+  resultHTML += `</table>
+    <p><strong>Total Marks:</strong> ${totalMarks}</p>
+    <p><strong>Percentage:</strong> ${percentage.toFixed(2)}%</p>
+    <p><strong>CGPA:</strong> ${cgpa}</p>
+    <p><strong>Result:</strong> ${resultClass}</p>
+    <h4>Grade Scale:</h4>
+    <p>O: 90-100 | A+: 80-89 | A: 70-79 | B+: 60-69 | B: 50-59 | C: 40-49 | F: <40</p>`;
+  document.getElementById("resultDisplay").innerHTML = resultHTML;
+
+  showCharts(subjects, studentDetails.marks);
+}
+
+function showCharts(subjects, marks) {
+  const barCtx = document.getElementById("barChart").getContext("2d");
+  const pieCtx = document.getElementById("pieChart").getContext("2d");
+  if (barChart) barChart.destroy();
+  if (pieChart) pieChart.destroy();
+
+  barChart = new Chart(barCtx, {
+    type: 'bar',
+    data: { labels: subjects, datasets: [{ label: 'Marks', data: marks, backgroundColor: 'teal' }] },
+    options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } } }
+  });
+
+  pieChart = new Chart(pieCtx, {
+    type: 'pie',
+    data: { labels: subjects, datasets: [{ data: marks, backgroundColor: ['#ff6384','#36a2eb','#ffce56','#4bc0c0','#9966ff'] }] },
+    options: { responsive: true }
+  });
+}
+
+function downloadPDF() {
+  const element = document.getElementById("resultDisplay");
+  html2pdf().from(element).save(`${studentDetails.name}_Result.pdf`);
+}
+
+function goBack() {
+  document.getElementById("resultSection").style.display = "none";
+  document.getElementById("semesterSection").style.display = "block";
+  document.getElementById("collegeInput").style.display = "block";
+}
+
+function toggleTheme() {
+  document.body.classList.toggle("dark");
+}</script>
